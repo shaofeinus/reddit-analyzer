@@ -1,2 +1,6 @@
 .RData
 .Rhistory
+*.rds
+*.csv
+RedditExtractoR.R
+subreddit_wordcount/

@@ -1,20 +1,69 @@
 source("util.R")
 
-# Define subreddit
-baseUrl = "https://www.reddit.com/r/worldnews/"
-# Crawl threads in subreddit
-subreddit.df = crawlSubredditPage(baseUrl = baseUrl, numPages = 1)
-# Get word counts for each user in subreddit
-wordCounts.df.list = lapply(subreddit.df$author,
-                            function(username) {
-                              print(paste("Crawling user", username))
-                              user.df = crawlRedditUser(username = username, numPages = 2)
-                              getWordCounts(strings = c(as.character(user.df$title),
-                                                        as.character(user.df$body)))
-                            })
-names(wordCounts.df.list) = subreddit.df$author
+findUsers = function(subredditUrl, numUsers = 100) {
+  print(paste("Finding users from subreddit:", getSubjectFromUrl(subredditUrl)))
+  MAX_ITER = 5
+  iter = 0
+  numUsersFound = 0
+  # Give some slack for duplicated users
+  numPagesToFind = ceiling(numUsers / 25) * 2
+  while(numUsersFound < numUsers && iter < MAX_ITER) {
+    print(paste("Looking into", numPagesToFind, "pages"))
+    subreddit.df = crawlSubredditPage(baseUrl = subredditUrl, numPages = numPagesToFind)
+    user.vec = subreddit.df$author[!duplicated(subreddit.df$author)]
+    numUsersFound = length(user.vec)
+    numPagesToFind = numPagesToFind * 2
+    iter = iter + 1
+  }
+  as.character(user.vec[1:numUsers])
+}
 
+getUserWordcount = function(user,  numPages = 5) {
+  user.df = crawlRedditUser(username = user, numPages = numPages)
+  if(nrow(user.df) == 0) 
+    return (data.frame(word = c(), freq = c()))
+  getWordCounts(strings = c(as.character(user.df$title),
+                            as.character(user.df$body)))
+}
 
+saveUserWordcount = function(user, wordcount.df = NULL, saveFolder = "user_wordcount", ...) {
+  # Crawl data if not crawled
+  if(is.null(wordcount.df))
+    wordcount.df = getUserWordcount(user, ...)
+  # Save
+  saveRDS(wordcount.df, file = paste0(saveFolder, "/", user, ".rds"))
+}
 
+getAndSaveAllUsersWordcount = function(user.vec, 
+                                            groupName = "group", 
+                                            saveFolder = "user_wordcount", ...) {
+  # Get word counts
+  for(user in user.vec) {
+    # Download user if does not already exists
+    if(file.exists(paste0(saveFolder, "/", user, ".rds"))) {
+      print(paste("User already downloaded:", user))
+    } else {
+      print(paste("Downloading user:", user))
+      wordcount.df = getUserWordcount(user, ...)
+      saveUserWordcount(user, wordcount.df)
+    }
+  }
+}
 
+#------------------ Program starts here ------------------#
+# Get the list of users from subreddit
+if(file.exists("user_wordcount/users.rds")) {
+  print("Users loaded from saved file")
+  users = readRDS("user_wordcount/users.rds")
+} else {
+  print("Finding users")
+  subreddits = c(read.csv("subreddits_1.csv", as.is = TRUE, header = FALSE)[,1], 
+                 read.csv("subreddits_2.csv", as.is = TRUE, header = FALSE)[,1],
+                 read.csv("subreddits_3.csv", as.is = TRUE, header = FALSE)[,1])
+  users = unlist(lapply(subreddits, findUsers, numUsers = 100))
+  users = users[!duplicated(users)]
+  saveRDS(users, file = paste0("user_wordcount/users.rds"))
+}
 
+# Get and save user word count
+getAndSaveAllUsersWordcount(users, numPages = 10)
