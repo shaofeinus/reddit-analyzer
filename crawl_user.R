@@ -1,4 +1,4 @@
-source("util.R")
+source("crawl_util.R")
 
 findUsers = function(subredditUrl, numUsers = 100) {
   print(paste("Finding users from subreddit:", getSubjectFromUrl(subredditUrl)))
@@ -35,8 +35,8 @@ saveUserWordcount = function(user, wordcount.df = NULL, saveFolder = "user_wordc
 }
 
 getAndSaveAllUsersWordcount = function(user.vec, 
-                                            groupName = "group", 
-                                            saveFolder = "user_wordcount", ...) {
+                                       groupName = "group", 
+                                       saveFolder = "user_wordcount", ...) {
   # Get word counts
   for(user in user.vec) {
     # Download user if does not already exists
@@ -50,11 +50,25 @@ getAndSaveAllUsersWordcount = function(user.vec,
   }
 }
 
+getAndSaveAllUsersData = function(user.vec, 
+                                  saveFolder = "user_data", ...) {
+  for(user in user.vec) {
+    # Download user if does not already exists
+    if(file.exists(paste0(saveFolder, "/", user, ".rds"))) {
+      print(paste("User already downloaded:", user))
+    } else {
+      print(paste("Downloading user:", user))
+      user.df = crawlRedditUser(user, ...)
+      saveRDS(user.df, paste0(saveFolder, "/", user, ".rds"))
+    }
+  }
+}
+
 #------------------ Program starts here ------------------#
 # Get the list of users from subreddit
-if(file.exists("user_wordcount/users.rds")) {
+if(file.exists("users.rds")) {
   print("Users loaded from saved file")
-  users = readRDS("user_wordcount/users.rds")
+  users = readRDS("users.rds")
 } else {
   print("Finding users")
   subreddits = c(read.csv("subreddits_1.csv", as.is = TRUE, header = FALSE)[,1], 
@@ -62,8 +76,9 @@ if(file.exists("user_wordcount/users.rds")) {
                  read.csv("subreddits_3.csv", as.is = TRUE, header = FALSE)[,1])
   users = unlist(lapply(subreddits, findUsers, numUsers = 100))
   users = users[!duplicated(users)]
-  saveRDS(users, file = paste0("user_wordcount/users.rds"))
+  saveRDS(users, file = paste0("users.rds"))
 }
 
 # Get and save user word count
 getAndSaveAllUsersWordcount(users, numPages = 10)
+getAndSaveAllUsersData(users, numPages = 10)

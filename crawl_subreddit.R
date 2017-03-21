@@ -1,4 +1,4 @@
-source("util.R")
+source("crawl_util.R")
 
 getSubredditWordcount = function(subredditUrl, numPages = 25, numCommentsPerSubreddit = .Machine$integer.max) {
   # Crawl threads in subreddit
@@ -45,7 +45,22 @@ getAndSaveAllSubredditsWordcount = function(subredditUrl.vec,
   }
 
   # Save subreddit names for this group
-  saveRDS(getSubjectFromUrl(subredditUrl.vec), file = paste0(saveFolder, "/", groupName, "_subreddits.rds"))
+  saveRDS(getSubjectFromUrl(subredditUrl.vec), file = paste0(groupName, "_subreddits.rds"))
+}
+
+getAndSaveAllSubredditsData = function(subredditUrl.vec, 
+                                   saveFolder = "subreddit_data", ...) {
+  # Get word counts
+  for(subredditUrl in subredditUrl.vec) {
+    # Download subreddit if does not already exists
+    if(file.exists(paste0(saveFolder, "/", getSubjectFromUrl(subredditUrl), ".rds"))) {
+      print(paste("Subreddit already downloaded:", getSubjectFromUrl(subredditUrl)))
+    } else {
+      print(paste("Downloading subreddit:", getSubjectFromUrl(subredditUrl)))
+      subreddit.df = crawlSubredditPage(baseUrl = subredditUrl, ...)
+      saveRDS(subreddit.df, file = paste0(saveFolder, "/", getSubjectFromUrl(subredditUrl), ".rds"))
+    }
+  }
 }
 
 #------------------ Program starts here ------------------#
@@ -56,3 +71,7 @@ subreddits_relevance3 = read.csv("subreddits_3.csv", as.is = TRUE, header = FALS
 getAndSaveAllSubredditsWordcount(subreddits_relevance1, groupName = "group_1", numPages = 25)
 getAndSaveAllSubredditsWordcount(subreddits_relevance2, groupName = "group_2", numPages = 25)
 getAndSaveAllSubredditsWordcount(subreddits_relevance3, groupName = "group_3", numPages = 25)
+
+getAndSaveAllSubredditsData(subreddits_relevance1, numPages = 25)
+getAndSaveAllSubredditsData(subreddits_relevance2, numPages = 25)
+getAndSaveAllSubredditsData(subreddits_relevance3, numPages = 25)
