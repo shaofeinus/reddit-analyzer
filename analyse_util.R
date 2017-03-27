@@ -24,13 +24,13 @@ makeWordFreqDf <- function(path, groupNames = NULL, maxRows = .Machine$double.xm
     groups = list(sub("\\.rds$", "", groups))
   } else {
     groups <- lapply(groupNames, 
-                         function(fgName) {
-                           readRDS(paste0(fgName, ".rds"))
-                         })
+                     function(fgName) {
+                       readRDS(paste0(fgName, ".rds"))
+                     })
   }
   # For each fileGroup, only process maxRows files
   groups = lapply(groups, maxRows = maxRows, 
-                      function (fg, maxRows) {fg[1:min(maxRows, length(fg))]})
+                  function (fg, maxRows) {fg[1:min(maxRows, length(fg))]})
   
   # Make matrix
   data.df <- data.frame(word=c(NA))
@@ -85,7 +85,7 @@ makeUserSubredditFreqDf <- function(path, groupNames = NULL, maxRows = .Machine$
   # Make matrix
   users.df.list = lapply(unlist(groups), 
                          function(user) {
-                           user.df = readRDS(paste0("user_data/", user, ".rds"))
+                           user.df = readRDS(paste0(path, "/", user, ".rds"))
                            subredditCounts = table(user.df$subreddit)
                            df = data.frame(subredditCounts)
                            if(ncol(df) == 1) return (NULL)
@@ -115,19 +115,19 @@ makeUserSubredditFreqDf <- function(path, groupNames = NULL, maxRows = .Machine$
 #'@param groupNames A list of names of groups of subreddits/users. Used to separate the points in the plot by groups.
 #'@return A ggplot class of scatter plot
 plotDist2D <- function(distance, groupNames = NULL) {
-
+  
   fit <- cmdscale(distance, eig = T, k = 2)
   x = fit$points[,1]
   y = fit$points[,2]
   
-  plotData.df = data.frame(name = rownames(as.matrix(distance)), x = x, y = y)
+  plotData.df = data.frame(name = row.names(fit$points), x = x, y = y)
   if(is.null(groupNames)) {
     plotData.df$group = "data"
   } else {
     groups <- lapply(groupNames, 
-                         function(fgName) {
-                           readRDS(paste0(fgName, ".rds"))
-                         })
+                     function(fgName) {
+                       readRDS(paste0(fgName, ".rds"))
+                     })
     plotData.df$group = sapply(plotData.df$name, 
                                groups = groups,
                                groupNames = groupNames,
@@ -149,4 +149,26 @@ plotDist2D <- function(distance, groupNames = NULL) {
     coord_cartesian(xlim = xlims*1.1, ylim = ylims*1.1) +
     geom_point() + 
     geom_text(aes(label = name), hjust=-0.1, vjust=1)
+}
+
+#'@description Get the most related entity based on distance vector
+#'@param subreddit The name of the entity to find the related entities for
+#'@param top The number of most related entities to return
+#'@param distance Distance matrix, must contain entity which the function is finding related entities for
+#'@return Vector of most related entities names, ordered by descending order of relatedness
+getRelated = function(name, top, distance) {
+  d.mat = as.matrix(distance)
+  if(abs(top) > nrow(d.mat) - 1) {
+    print("top variable too large, nothing is returned")
+    return (c())
+  }
+  if(!name %in% row.names(d.mat)) {
+    print("name not in distance matrix, nothing is returned")
+    return (c())
+  }
+  if(top > 0) 
+    indexes = 2:(top + 1)
+  else 
+    indexes = (nrow(d.mat) + top + 1):nrow(d.mat)
+  names(d.mat[order(d.mat[, name]), name][indexes])
 }
